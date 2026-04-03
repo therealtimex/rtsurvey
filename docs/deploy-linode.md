@@ -1,111 +1,147 @@
-# Deploy rtSurvey on Linode
+# Deploy rtSurvey on Linode (Akamai Cloud)
 
-Provision a fresh Ubuntu 22.04 LTS Linode using the public rtSurvey StackScript.
-The script installs Docker, configures Nginx, and launches rtSurvey automatically
-on first boot.
-
----
-
-## One-click deploy
-
-**[Deploy on Linode →](https://cloud.linode.com/stackscripts/XXXXXXX)**
-
-> Replace the link above with the published public StackScript URL once available.
+Deploy rtCloud on Linode using a StackScript. No configuration needed — just
+create the server and follow the post-deployment steps.
 
 ---
 
-## Requirements
+## Step 1 — Launch the StackScript
 
-| | |
-|-|--|
-| **Linode plan** | Shared CPU — 4 GB RAM ($24/mo minimum) |
+**[Deploy rtSurvey on Linode →](https://cloud.linode.com/stackscripts/2049143)**
+
+This opens the StackScript page in Linode Cloud Manager. Click **Deploy New Linode**.
+
+---
+
+## Step 2 — Fill in Linode's form
+
+Fill in Linode's standard server creation form:
+
+| Field | Recommended value |
+|-------|------------------|
 | **Image** | Ubuntu 22.04 LTS |
-| **Domain** | A DNS A record pointing to the Linode IP (for SSL) |
+| **Region** | Closest to your users |
+| **Plan** | Shared CPU 4 GB or larger |
+| **Root Password** | Set a strong password |
+| **Firewall** | No Firewall *(recommended — see note below)* |
+| **Timezone** *(only our field)* | Your server timezone (default: `Asia/Ho_Chi_Minh`) |
+
+> **Why no firewall?** The setup script needs outbound internet access (Docker
+> pulls, Let's Encrypt). Blocking ports during first boot can cause the
+> deployment to fail. Attach a firewall after setup is complete — see
+> [Firewall rules](#firewall-rules) below.
+
+Click **Create Linode** when done.
 
 ---
 
-## Steps
+## Step 3 — Wait for setup to complete
 
-### 1. Open the StackScript
+The script runs automatically on first boot. It installs Docker, pulls the
+rtSurvey image, initialises the database, and starts all services.
+This takes **5–10 minutes**.
 
-Go to the public StackScript:
-**[cloud.linode.com/stackscripts/XXXXXXX](https://cloud.linode.com/stackscripts/XXXXXXX)**
+Watch progress in **Linode Cloud Manager** — no SSH required:
 
-Or, in the Linode console:
+1. Go to your [Linode dashboard](https://cloud.linode.com/linodes)
+2. Click on your newly created Linode
+3. Click **Launch LISH Console** (top right) — the **Weblish** tab opens a
+   live terminal in your browser
 
-1. **Create** → **Linode**
-2. Under **Choose a Distribution** → select **StackScripts**
-3. Search for **rtSurvey**
+Wait until you see:
 
-### 2. Fill in the UDF fields
+```
+============================================================
+ rtSurvey deployment complete!
+============================================================
+ Server IP : <your-server-ip>
 
-The StackScript prompts for configuration at deploy time:
+ App URL   : http://<your-server-ip>  (HTTP only until domain is set)
+ Admin     : admin / admin
+============================================================
+```
 
-| Field | Description |
-|-------|-------------|
-| **Timezone** | Server timezone (default: `Asia/Ho_Chi_Minh`) |
-
-> Admin password, image tag, and SSO settings are pre-configured in the script
-> with secure defaults. Domain and SSL are set after first boot via the app UI.
-
-### 3. Create the Linode
-
-1. Select **Ubuntu 22.04 LTS** as the image
-2. Choose a region close to your users
-3. Select a plan — **Shared CPU, 4 GB RAM** or larger
-4. Click **Create Linode**
-
-Setup runs automatically on first boot and takes 5–10 minutes.
-
-### 4. Monitor setup
+Or monitor via SSH:
 
 ```bash
 ssh root@<linode-ip> tail -f /var/log/stackscript.log
 ```
 
-### 5. First login
+---
 
-Open `http://<linode-ip>` in your browser:
+## Step 4 — Set up SSL
 
-| Field | Value |
-|-------|-------|
-| Username | `admin` |
-| Password | `admin` *(change immediately after first login)* |
+Open `http://<server-ip>` in your browser. The app will redirect you to the
+SSL setup screen. Follow the on-screen steps to configure HTTPS via
+Let's Encrypt (free).
 
-### 6. Configure domain and SSL
+---
 
-In the app: **Admin → Configuration → Domain & SSL**
+## Step 5 — Change default passwords
 
-Enter your domain and email. The app will request a Let's Encrypt certificate
-and switch to HTTPS automatically.
+All passwords default to `admin`. Change them immediately after first login:
+
+- **App admin password** — account settings inside the app
+- **Keycloak admin** — `https://your-domain.com/auth/admin`
+  (login: `admin` / `admin`)
+
+---
+
+## Firewall rules
+
+If you attach a Linode Cloud Firewall to this server, use these rules:
+
+### Inbound
+
+| Label | Protocol | Port | Notes |
+|-------|----------|------|-------|
+| `accept-inbound-ssh` | TCP | 22 | SSH access |
+| `accept-inbound-http` | TCP | 80 | Nginx + ACME challenge |
+| `accept-inbound-https` | TCP | 443 | Nginx HTTPS |
+| `accept-inbound-shiny` | TCP | 3838 | Shiny Server (R analytics) |
+| `accept-inbound-icmp` | ICMP | — | Ping / diagnostics |
+| Default inbound | **Drop** | | Block everything else |
+
+### Outbound
+
+| Policy | Notes |
+|--------|-------|
+| **Accept all** | Required for Docker pulls, certbot, DNS APIs |
+
+### Ports NOT exposed externally
+
+| Port | Service | Reason |
+|------|---------|--------|
+| 8080 | App container | Nginx proxies internally |
+| 8090 | Keycloak container | Nginx proxies internally |
+| 3306 | MySQL | Internal Docker network only |
+
+---
+
+## Troubleshooting
+
+```bash
+# Setup log
+tail -200 /var/log/stackscript.log
+
+# SSL log
+tail -200 /var/log/rtsurvey-ssl.log
+
+# Container status
+docker compose -f /opt/rtsurvey/docker-compose.production.yml ps
+
+# App logs
+docker compose -f /opt/rtsurvey/docker-compose.production.yml logs -f rtcloud
+```
 
 ---
 
 ## Manual deployment
 
-If you prefer to run the script manually on an existing Linode, the source is
-available at [`scripts/linode-stackscript.sh`](../scripts/linode-stackscript.sh).
+The StackScript source is available at
+[`scripts/linode-stackscript.sh`](../scripts/linode-stackscript.sh) if you
+prefer to run it manually on an existing server:
 
 ```bash
-# Download and run on a fresh Ubuntu 22.04 server
 curl -fsSL https://raw.githubusercontent.com/therealtimex/rtsurvey/main/scripts/linode-stackscript.sh | bash
-```
-
----
-
-## Useful commands after deployment
-
-```bash
-# View setup log
-ssh root@<linode-ip> tail -f /var/log/stackscript.log
-
-# App logs
-docker compose -f /opt/rtcloud/docker-compose.production.yml logs -f rtcloud
-
-# Restart app
-docker compose -f /opt/rtcloud/docker-compose.production.yml restart rtcloud
-
-# Pull latest image and redeploy
-docker compose -f /opt/rtcloud/docker-compose.production.yml pull
-docker compose -f /opt/rtcloud/docker-compose.production.yml up -d
 ```

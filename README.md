@@ -121,7 +121,7 @@ Automated scripts handle Docker installation, Nginx reverse proxy, Let's Encrypt
 
 | Provider | Guide |
 |----------|-------|
-| Linode | [deploy-linode.md](docs/deploy-linode.md) |
+| Linode | [StackScript →](https://cloud.linode.com/stackscripts/2049143) · [Guide](docs/deploy-linode.md) |
 | DigitalOcean | [deploy-digitalocean.md](docs/deploy-digitalocean.md) |
 
 ---
