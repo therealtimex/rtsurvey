@@ -121,10 +121,8 @@ Automated scripts handle Docker installation, Nginx reverse proxy, Let's Encrypt
 
 | Provider | Guide |
 |----------|-------|
-| Linode | [deployment-linode.md](docs/deployment-linode.md) |
-| DigitalOcean | [deployment-digitalocean.md](docs/deployment-digitalocean.md) |
-| AWS EC2 | [deployment-aws.md](docs/deployment-aws.md) |
-| Google Cloud | [deployment-gcp.md](docs/deployment-gcp.md) |
+| Linode | [deploy-linode.md](docs/deploy-linode.md) |
+| DigitalOcean | [deploy-digitalocean.md](docs/deploy-digitalocean.md) |
 
 ---
 
