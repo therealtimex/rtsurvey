@@ -1,20 +1,31 @@
 #!/bin/bash
 # ==============================================================================
-# rtCloud - GCP Compute Engine Startup Script
+# rtSurvey - GCP Compute Engine Startup Script
 # ==============================================================================
-# Provisions a fresh Ubuntu 22.04 LTS VM with Docker and launches rtCloud.
+# Provisions a fresh Ubuntu 22.04 LTS VM with Docker and launches rtSurvey.
 #
-# HOW TO USE:
-#   Option A — Console:
-#     VM creation > Advanced options > Management > Automation > Startup script
-#     Paste this entire script.
-#   Option B — gcloud CLI:
-#     gcloud compute instances create INSTANCE_NAME \
-#       --image-family=ubuntu-2204-lts --image-project=ubuntu-os-cloud \
-#       --machine-type=e2-medium \
-#       --metadata-from-file startup-script=gcp-compute.sh
-#   Recommended: e2-medium (2 vCPU / 4 GB RAM) or larger with Keycloak.
-#   Firewall: allow tcp:22, tcp:80, tcp:443, tcp:3838 in your VPC firewall rules.
+# HOW TO USE — Option A (bootstrap, recommended):
+#   GCP startup scripts have no size limit, but bootstrap keeps things clean.
+#   Pass as metadata via gcloud:
+#
+#   gcloud compute instances create INSTANCE_NAME \
+#     --image-family=ubuntu-2204-lts --image-project=ubuntu-os-cloud \
+#     --machine-type=e2-medium \
+#     --metadata=startup-script='#!/bin/bash
+#   export PROJECT_ID="rtsurvey"
+#   export ADMIN_PASSWORD="admin"
+#   export EMBED_KEYCLOAK="true"
+#   export TZ="Asia/Ho_Chi_Minh"
+#   curl -fsSL https://raw.githubusercontent.com/therealtimex/rtsurvey/main/scripts/gcp-compute.sh | bash'
+#
+# HOW TO USE — Option B (full script):
+#   gcloud compute instances create INSTANCE_NAME \
+#     --image-family=ubuntu-2204-lts --image-project=ubuntu-os-cloud \
+#     --machine-type=e2-medium \
+#     --metadata-from-file startup-script=gcp-compute.sh
+#
+# Size    : e2-medium (2 vCPU / 4 GB RAM) minimum; e2-standard-2 recommended with Keycloak
+# Firewall: allow tcp:22, tcp:80, tcp:443, tcp:3838 in your VPC firewall rules
 #
 # Monitor progress:
 #   ssh user@<instance-ip> sudo tail -f /var/log/rtsurvey-setup.log
@@ -25,48 +36,47 @@
 # ==============================================================================
 
 # ==============================================================================
-# CONFIGURATION — Edit these values before pasting as startup script
+# CONFIGURATION — edit here (Option B) or export env vars before piping (Option A)
 # ==============================================================================
 
 # --- Required ---
-PROJECT_ID="myproject"                        # Unique identifier (no spaces)
-ADMIN_PASSWORD="admin"                        # rtCloud web admin password — change after first login
+PROJECT_ID="${PROJECT_ID:-rtsurvey}"                  # Unique identifier (no spaces)
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin}"              # Change after first login
 
-RTCLOUD_IMAGE="rtawebteam/rtcloud:survey-public"
+RTCLOUD_IMAGE="${RTCLOUD_IMAGE:-rtawebteam/rtcloud:survey-public}"
 
 # --- Domain + SSL: leave blank — configure via app UI after boot ---
 # DOMAIN and LETSENCRYPT_EMAIL are set through the app UI, not here.
 
 # --- Ports ---
-APP_PORT="80"
-SHINY_PORT="3838"
+APP_PORT="${APP_PORT:-80}"
+SHINY_PORT="${SHINY_PORT:-3838}"
 
 # --- Embedded Keycloak (built-in SSO) ---
 # Requires domain + SSL to be configured via app UI after boot.
-EMBED_KEYCLOAK="true"
-KEYCLOAK_ADMIN_PASSWORD="${ADMIN_PASSWORD}"
+EMBED_KEYCLOAK="${EMBED_KEYCLOAK:-true}"
+KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:-${ADMIN_PASSWORD}}"
 
 # --- SSO (external OIDC — used only when EMBED_KEYCLOAK=false) ---
-OIDC_ISSUER_URL=""
-OIDC_CLIENT_ID=""
-OIDC_CLIENT_SECRET=""
-OIDC_DISCOVERY_URL=""
-OIDC_AUTHORIZATION_ENDPOINT=""
-OIDC_TOKEN_ENDPOINT=""
-OIDC_USERINFO_ENDPOINT=""
-OIDC_SCOPE="openid email"
-OIDC_MOBILE_CLIENT_ID=""
-OIDC_MOBILE_REDIRECT_URI=""
-OPEN_REGISTRATION="true"
+OIDC_ISSUER_URL="${OIDC_ISSUER_URL:-}"
+OIDC_CLIENT_ID="${OIDC_CLIENT_ID:-}"
+OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET:-}"
+OIDC_DISCOVERY_URL="${OIDC_DISCOVERY_URL:-}"
+OIDC_AUTHORIZATION_ENDPOINT="${OIDC_AUTHORIZATION_ENDPOINT:-}"
+OIDC_TOKEN_ENDPOINT="${OIDC_TOKEN_ENDPOINT:-}"
+OIDC_USERINFO_ENDPOINT="${OIDC_USERINFO_ENDPOINT:-}"
+OIDC_SCOPE="${OIDC_SCOPE:-openid email}"
+OIDC_MOBILE_CLIENT_ID="${OIDC_MOBILE_CLIENT_ID:-}"
+OIDC_MOBILE_REDIRECT_URI="${OIDC_MOBILE_REDIRECT_URI:-}"
+OPEN_REGISTRATION="${OPEN_REGISTRATION:-true}"
 
 # --- Stata14 ---
-STATA_ENABLED="false"
-STATA_LICENSE_B64=""        # base64 of stata.lic (required when STATA_ENABLED=true)
-#   How to encode:  base64 -w 0 stata.lic   (Linux) / base64 -i stata.lic   (macOS)
+STATA_ENABLED="${STATA_ENABLED:-false}"
+STATA_LICENSE_B64="${STATA_LICENSE_B64:-}"  # base64 -w 0 stata.lic (Linux) / base64 -i stata.lic (macOS)
 
 # --- Optional ---
-TZ="Asia/Ho_Chi_Minh"
-CSRF_VALIDATION_ENABLED="true"
+TZ="${TZ:-Asia/Ho_Chi_Minh}"
+CSRF_VALIDATION_ENABLED="${CSRF_VALIDATION_ENABLED:-true}"
 
 # ==============================================================================
 # END CONFIGURATION — Do not edit below this line

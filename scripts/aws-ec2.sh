@@ -1,14 +1,28 @@
 #!/bin/bash
 # ==============================================================================
-# rtCloud - AWS EC2 User-Data Script
+# rtSurvey - AWS EC2 User-Data Script
 # ==============================================================================
-# Provisions a fresh Ubuntu 22.04 LTS EC2 instance with Docker and launches rtCloud.
+# Provisions a fresh Ubuntu 22.04 LTS EC2 instance with Docker and launches rtSurvey.
 #
-# HOW TO USE:
-#   1. In EC2 launch wizard: Advanced Details > User data > paste this entire script.
-#   2. Choose Ubuntu Server 22.04 LTS (HVM) as the AMI.
-#   3. Recommended: t3.medium (2 vCPU / 4 GB RAM) or larger with Keycloak.
-#   4. Security Group: allow SSH (22), HTTP (80), HTTPS (443), Shiny (3838).
+# HOW TO USE — Option A (bootstrap, recommended):
+#   AWS user-data has a 16 KB limit; this script exceeds it.
+#   Paste the following bootstrap snippet as user-data instead:
+#
+#   #!/bin/bash
+#   export PROJECT_ID="rtsurvey"
+#   export ADMIN_PASSWORD="admin"
+#   export EMBED_KEYCLOAK="true"
+#   export TZ="Asia/Ho_Chi_Minh"
+#   curl -fsSL https://raw.githubusercontent.com/therealtimex/rtsurvey/main/scripts/aws-ec2.sh | bash
+#
+# HOW TO USE — Option B (full script):
+#   Edit the CONFIGURATION block below, then upload via:
+#     aws ec2 run-instances --user-data file://aws-ec2.sh ...
+#   Note: user-data console paste is limited to 16 KB; use CLI or base64 upload.
+#
+# AMI   : Ubuntu Server 22.04 LTS (HVM)
+# Size  : t3.medium (2 vCPU / 4 GB RAM) minimum; t3.large recommended with Keycloak
+# SG    : allow TCP 22, 80, 443, 3838
 #
 # Monitor progress:
 #   ssh ubuntu@<instance-ip> sudo tail -f /var/log/rtsurvey-setup.log
@@ -19,48 +33,47 @@
 # ==============================================================================
 
 # ==============================================================================
-# CONFIGURATION — Edit these values before pasting as user-data
+# CONFIGURATION — edit here (Option B) or export env vars before piping (Option A)
 # ==============================================================================
 
 # --- Required ---
-PROJECT_ID="rtsurvey"                        # Unique identifier (no spaces)
-ADMIN_PASSWORD="admin"                        # rtCloud web admin password — change after first login
+PROJECT_ID="${PROJECT_ID:-rtsurvey}"                  # Unique identifier (no spaces)
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin}"              # Change after first login
 
-RTCLOUD_IMAGE="rtawebteam/rtcloud:survey-public"
+RTCLOUD_IMAGE="${RTCLOUD_IMAGE:-rtawebteam/rtcloud:survey-public}"
 
 # --- Domain + SSL: leave blank — configure via app UI after boot ---
 # DOMAIN and LETSENCRYPT_EMAIL are set through the app UI, not here.
 
 # --- Ports ---
-APP_PORT="80"
-SHINY_PORT="3838"
+APP_PORT="${APP_PORT:-80}"
+SHINY_PORT="${SHINY_PORT:-3838}"
 
 # --- Embedded Keycloak (built-in SSO) ---
 # Requires domain + SSL to be configured via app UI after boot.
-EMBED_KEYCLOAK="true"
-KEYCLOAK_ADMIN_PASSWORD="${ADMIN_PASSWORD}"
+EMBED_KEYCLOAK="${EMBED_KEYCLOAK:-true}"
+KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:-${ADMIN_PASSWORD}}"
 
 # --- SSO (external OIDC — used only when EMBED_KEYCLOAK=false) ---
-OIDC_ISSUER_URL=""
-OIDC_CLIENT_ID=""
-OIDC_CLIENT_SECRET=""
-OIDC_DISCOVERY_URL=""
-OIDC_AUTHORIZATION_ENDPOINT=""
-OIDC_TOKEN_ENDPOINT=""
-OIDC_USERINFO_ENDPOINT=""
-OIDC_SCOPE="openid email"
-OIDC_MOBILE_CLIENT_ID=""
-OIDC_MOBILE_REDIRECT_URI=""
-OPEN_REGISTRATION="true"
+OIDC_ISSUER_URL="${OIDC_ISSUER_URL:-}"
+OIDC_CLIENT_ID="${OIDC_CLIENT_ID:-}"
+OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET:-}"
+OIDC_DISCOVERY_URL="${OIDC_DISCOVERY_URL:-}"
+OIDC_AUTHORIZATION_ENDPOINT="${OIDC_AUTHORIZATION_ENDPOINT:-}"
+OIDC_TOKEN_ENDPOINT="${OIDC_TOKEN_ENDPOINT:-}"
+OIDC_USERINFO_ENDPOINT="${OIDC_USERINFO_ENDPOINT:-}"
+OIDC_SCOPE="${OIDC_SCOPE:-openid email}"
+OIDC_MOBILE_CLIENT_ID="${OIDC_MOBILE_CLIENT_ID:-}"
+OIDC_MOBILE_REDIRECT_URI="${OIDC_MOBILE_REDIRECT_URI:-}"
+OPEN_REGISTRATION="${OPEN_REGISTRATION:-true}"
 
 # --- Stata14 ---
-STATA_ENABLED="false"
-STATA_LICENSE_B64=""        # base64 of stata.lic (required when STATA_ENABLED=true)
-#   How to encode:  base64 -w 0 stata.lic   (Linux) / base64 -i stata.lic   (macOS)
+STATA_ENABLED="${STATA_ENABLED:-false}"
+STATA_LICENSE_B64="${STATA_LICENSE_B64:-}"  # base64 -w 0 stata.lic (Linux) / base64 -i stata.lic (macOS)
 
 # --- Optional ---
-TZ="Asia/Ho_Chi_Minh"
-CSRF_VALIDATION_ENABLED="true"
+TZ="${TZ:-Asia/Ho_Chi_Minh}"
+CSRF_VALIDATION_ENABLED="${CSRF_VALIDATION_ENABLED:-true}"
 
 # ==============================================================================
 # END CONFIGURATION — Do not edit below this line
