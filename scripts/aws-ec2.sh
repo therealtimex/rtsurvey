@@ -731,7 +731,7 @@ update_env() {
 # ------------------------------------------------------------------------------
 CERT="" KEY="" PROTOCOL="https" PORT=443
 
-if [[ "$TYPE" == "certbot" ]]; then
+if [[ "$TYPE" == "certbot" || "$TYPE" == "rtsurvey" ]]; then
   if [[ -z "$LETSENCRYPT_EMAIL" ]]; then
     write_status "error" ",\"error\":\"email not provided\""
     exit 1
@@ -766,11 +766,6 @@ if [[ "$TYPE" == "certbot" ]]; then
 
   CERT="/etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
   KEY="/etc/letsencrypt/live/${DOMAIN}/privkey.pem"
-
-elif [[ "$TYPE" == "rtsurvey" ]]; then
-  # *.rtsurvey.com -- Cloudflare terminates SSL, origin serves HTTP only
-  PROTOCOL="https"
-  PORT=443
 fi
 
 # ------------------------------------------------------------------------------
@@ -791,7 +786,7 @@ if [[ "${EMBED_KEYCLOAK}" == "true" ]]; then
     }'
 fi
 
-if [[ "$TYPE" == "certbot" ]]; then
+if [[ "$TYPE" == "certbot" || "$TYPE" == "rtsurvey" ]]; then
   cat > /etc/nginx/sites-available/rtsurvey << NGINX_EOF
 server {
     listen 80;
@@ -808,31 +803,6 @@ server {
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
     ssl_prefer_server_ciphers off;
-
-${KC_BLOCK}
-    location / {
-        proxy_pass         http://127.0.0.1:8080;
-        proxy_set_header   Host              \$host;
-        proxy_set_header   X-Real-IP         \$remote_addr;
-        proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
-        proxy_set_header   X-Forwarded-Proto \$scheme;
-        proxy_read_timeout 120s;
-        client_max_body_size 100M;
-    }
-}
-NGINX_EOF
-
-elif [[ "$TYPE" == "rtsurvey" ]]; then
-  # Cloudflare proxy -- origin serves HTTP, Cloudflare handles HTTPS
-  # Keep ACME challenge path so switching to certbot later still works
-  cat > /etc/nginx/sites-available/rtsurvey << NGINX_EOF
-server {
-    listen 80;
-    server_name ${DOMAIN};
-
-    location /.well-known/acme-challenge/ {
-        root /var/www/html;
-    }
 
 ${KC_BLOCK}
     location / {

@@ -119,10 +119,12 @@ docker compose logs -f rtcloud
 
 Automated scripts handle Docker installation, Nginx reverse proxy, Let's Encrypt TLS, and firewall setup:
 
-| Provider | Guide |
-|----------|-------|
-| Linode | [StackScript →](https://cloud.linode.com/stackscripts/2049143) · [Guide](docs/deploy-linode.md) |
-| DigitalOcean | [deploy-digitalocean.md](docs/deploy-digitalocean.md) |
+| Provider | Script | Guide |
+|----------|--------|-------|
+| Linode | [StackScript →](https://cloud.linode.com/stackscripts/2049143) | [Guide](docs/deploy-linode.md) |
+| DigitalOcean | [digitalocean-droplet.sh](scripts/digitalocean-droplet.sh) | [deploy-digitalocean.md](docs/deploy-digitalocean.md) |
+| AWS EC2 | [aws-ec2.sh](scripts/aws-ec2.sh) | [docs.rtsurvey.com](https://docs.rtsurvey.com/deployment/cloud-providers/aws-ec2) |
+| GCP Compute Engine | [gcp-compute.sh](scripts/gcp-compute.sh) | [docs.rtsurvey.com](https://docs.rtsurvey.com/deployment/cloud-providers/gcp-compute-engine) |
 
 ---
 
