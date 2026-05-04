@@ -1,0 +1,113 @@
+imports:
+  - path: rtsurvey.jinja
+
+info:
+  version: '1.0'
+  title: RTSurvey Template
+
+required:
+  - zone
+  - machineType
+  - adminPassword
+
+properties:
+  zone:
+    type: string
+    default: us-central1-a
+    x-googleProperty:
+      type: GCE_ZONE
+
+  machineType:
+    type: string
+    default: e2-standard-2
+    x-googleProperty:
+      type: GCE_MACHINE_TYPE
+      zoneProperty: zone
+      gceMachineType:
+        minCpu: 2
+        minRamGb: 4
+
+  bootDiskType:
+    type: string
+    default: pd-ssd
+    x-googleProperty:
+      type: GCE_DISK_TYPE
+      zoneProperty: zone
+
+  bootDiskSizeGb:
+    type: integer
+    default: 50
+    minimum: 30
+    maximum: 10000
+    x-googleProperty:
+      type: GCE_DISK_SIZE
+      gceDiskSize:
+        diskTypeProperty: bootDiskType
+
+  network:
+    type: array
+    default:
+      - network: default
+        subnetwork: default
+        externalIp:
+          type: EPHEMERAL
+    minItems: 1
+    maxItems: 1
+    x-googleProperty:
+      type: GCE_NETWORK
+      gceNetwork:
+        allowSharedVpcs: true
+        machineTypeProperty: machineType
+
+  adminPassword:
+    type: string
+    minLength: 8
+    description: Admin password for RTSurvey dashboard (change after first login)
+
+  projectId:
+    type: string
+    default: rtsurvey
+    pattern: '^[a-z0-9_-]+$'
+    description: Unique project identifier (lowercase, no spaces)
+
+  timezone:
+    type: string
+    default: Asia/Ho_Chi_Minh
+    description: Server timezone (e.g. America/New_York, Europe/London)
+
+  embedKeycloak:
+    type: boolean
+    default: true
+    description: Enable built-in SSO via Keycloak (recommended)
+
+  enableTcp80:
+    type: boolean
+    default: true
+    x-googleProperty:
+      type: GCE_FIREWALL
+      gceFirewall:
+        networkProperty: network
+
+  enableTcp443:
+    type: boolean
+    default: true
+    x-googleProperty:
+      type: GCE_FIREWALL
+      gceFirewall:
+        networkProperty: network
+
+  enableTcp3838:
+    type: boolean
+    default: true
+    x-googleProperty:
+      type: GCE_FIREWALL
+      gceFirewall:
+        networkProperty: network
+
+  enableTcp22:
+    type: boolean
+    default: true
+    x-googleProperty:
+      type: GCE_FIREWALL
+      gceFirewall:
+        networkProperty: network

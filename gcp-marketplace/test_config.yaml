@@ -1,0 +1,24 @@
+imports:
+  - path: rtsurvey.jinja
+
+resources:
+  - name: rtsurvey-test
+    type: rtsurvey.jinja
+    properties:
+      zone: us-central1-a
+      machineType: e2-standard-2
+      bootDiskType: pd-ssd
+      bootDiskSizeGb: 50
+      network:
+        - network: default
+          subnetwork: default
+          externalIp:
+            type: EPHEMERAL
+      adminPassword: TestPassword123
+      projectId: rtsurvey
+      timezone: Asia/Ho_Chi_Minh
+      embedKeycloak: true
+      enableTcp80: true
+      enableTcp443: true
+      enableTcp3838: true
+      enableTcp22: true

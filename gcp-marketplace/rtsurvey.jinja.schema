@@ -1,0 +1,65 @@
+info:
+  title: RTSurvey
+  author: RTA Web Team
+  description: RTSurvey deployment template for Google Cloud Marketplace
+
+imports:
+  - path: rtsurvey.jinja
+
+required:
+  - zone
+  - machineType
+  - adminPassword
+
+properties:
+  zone:
+    type: string
+    description: GCP zone for the VM instance
+
+  machineType:
+    type: string
+    description: Machine type (e2-standard-2 recommended)
+
+  bootDiskType:
+    type: string
+    description: Boot disk type
+
+  bootDiskSizeGb:
+    type: integer
+    description: Boot disk size in GB (minimum 30)
+
+  network:
+    type: array
+    description: Network configuration
+
+  adminPassword:
+    type: string
+    description: RTSurvey admin password
+
+  projectId:
+    type: string
+    description: RTSurvey project identifier
+
+  timezone:
+    type: string
+    description: Server timezone
+
+  embedKeycloak:
+    type: boolean
+    description: Enable built-in Keycloak SSO
+
+  enableTcp80:
+    type: boolean
+    description: Allow HTTP traffic on port 80
+
+  enableTcp443:
+    type: boolean
+    description: Allow HTTPS traffic on port 443
+
+  enableTcp3838:
+    type: boolean
+    description: Allow Shiny Server on port 3838
+
+  enableTcp22:
+    type: boolean
+    description: Allow SSH on port 22

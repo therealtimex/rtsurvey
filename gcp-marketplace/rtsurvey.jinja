@@ -1,0 +1,123 @@
+{% set deployment = env['deployment'] %}
+{% set project = env['project'] %}
+{% set zone = properties['zone'] %}
+{% set machineType = properties['machineType'] %}
+{% set network = properties['network'][0] %}
+
+resources:
+
+# ── Firewall: HTTP ────────────────────────────────────────────────────────────
+{% if properties['enableTcp80'] %}
+- name: {{ deployment }}-tcp-80
+  type: compute.v1.firewall
+  properties:
+    network: https://www.googleapis.com/compute/v1/projects/{{ project }}/global/networks/{{ network['network'] }}
+    targetTags:
+      - {{ deployment }}-deployment
+    allowed:
+      - IPProtocol: TCP
+        ports:
+          - '80'
+{% endif %}
+
+# ── Firewall: HTTPS ───────────────────────────────────────────────────────────
+{% if properties['enableTcp443'] %}
+- name: {{ deployment }}-tcp-443
+  type: compute.v1.firewall
+  properties:
+    network: https://www.googleapis.com/compute/v1/projects/{{ project }}/global/networks/{{ network['network'] }}
+    targetTags:
+      - {{ deployment }}-deployment
+    allowed:
+      - IPProtocol: TCP
+        ports:
+          - '443'
+{% endif %}
+
+# ── Firewall: Shiny Server ────────────────────────────────────────────────────
+{% if properties['enableTcp3838'] %}
+- name: {{ deployment }}-tcp-3838
+  type: compute.v1.firewall
+  properties:
+    network: https://www.googleapis.com/compute/v1/projects/{{ project }}/global/networks/{{ network['network'] }}
+    targetTags:
+      - {{ deployment }}-deployment
+    allowed:
+      - IPProtocol: TCP
+        ports:
+          - '3838'
+{% endif %}
+
+# ── Firewall: SSH ─────────────────────────────────────────────────────────────
+{% if properties['enableTcp22'] %}
+- name: {{ deployment }}-tcp-22
+  type: compute.v1.firewall
+  properties:
+    network: https://www.googleapis.com/compute/v1/projects/{{ project }}/global/networks/{{ network['network'] }}
+    targetTags:
+      - {{ deployment }}-deployment
+    allowed:
+      - IPProtocol: TCP
+        ports:
+          - '22'
+{% endif %}
+
+# ── VM Instance ───────────────────────────────────────────────────────────────
+- name: {{ deployment }}-vm
+  type: compute.v1.instance
+  properties:
+    zone: {{ zone }}
+    machineType: https://www.googleapis.com/compute/v1/projects/{{ project }}/zones/{{ zone }}/machineTypes/{{ machineType }}
+    tags:
+      items:
+        - {{ deployment }}-deployment
+    disks:
+      - deviceName: boot
+        type: PERSISTENT
+        boot: true
+        autoDelete: true
+        initializeParams:
+          diskType: https://www.googleapis.com/compute/v1/projects/{{ project }}/zones/{{ zone }}/diskTypes/{{ properties['bootDiskType'] }}
+          diskSizeGb: {{ properties['bootDiskSizeGb'] }}
+          sourceImage: https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/family/ubuntu-2204-lts
+    networkInterfaces:
+      - network: https://www.googleapis.com/compute/v1/projects/{{ project }}/global/networks/{{ network['network'] }}
+        {% if network.get('subnetwork') %}
+        subnetwork: https://www.googleapis.com/compute/v1/projects/{{ project }}/regions/{{ zone[:-2] }}/subnetworks/{{ network['subnetwork'] }}
+        {% endif %}
+        {% if network.get('externalIp', {}).get('type') != 'NONE' %}
+        accessConfigs:
+          - name: External NAT
+            type: ONE_TO_ONE_NAT
+            {% if network.get('externalIp', {}).get('type') == 'IP_ADDRESS' %}
+            natIP: {{ network['externalIp']['staticIp'] }}
+            {% endif %}
+        {% endif %}
+    serviceAccounts:
+      - email: default
+        scopes:
+          - https://www.googleapis.com/auth/cloud-platform
+    metadata:
+      items:
+        - key: startup-script
+          value: |
+            #!/bin/bash
+            export PROJECT_ID="{{ properties['projectId'] }}"
+            export ADMIN_PASSWORD="{{ properties['adminPassword'] }}"
+            export EMBED_KEYCLOAK="{{ 'true' if properties['embedKeycloak'] else 'false' }}"
+            export TZ="{{ properties['timezone'] }}"
+            curl -fsSL https://raw.githubusercontent.com/therealtimex/rtsurvey/main/scripts/gcp-compute.sh | bash
+        - key: google-logging-enabled
+          value: 'true'
+
+outputs:
+  - name: vmName
+    value: $(ref.{{ deployment }}-vm.name)
+  - name: vmSelfLink
+    value: $(ref.{{ deployment }}-vm.selfLink)
+  - name: vmExternalIp
+    value: $(ref.{{ deployment }}-vm.networkInterfaces[0].accessConfigs[0].natIP)
+  - name: adminUrl
+    value: http://$(ref.{{ deployment }}-vm.networkInterfaces[0].accessConfigs[0].natIP)
+  - name: setupLog
+    value: 'Monitor setup: ssh user@$(ref.{{ deployment }}-vm.networkInterfaces[0].accessConfigs[0].natIP) sudo tail -f /var/log/rtsurvey-setup.log'
