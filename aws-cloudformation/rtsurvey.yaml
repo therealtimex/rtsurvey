@@ -1,0 +1,154 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: RTSurvey - Self-hosted survey platform on EC2 (Ubuntu 22.04 + Docker)
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: RTSurvey Configuration
+        Parameters:
+          - AdminPassword
+          - ProjectId
+          - Timezone
+      - Label:
+          default: EC2 Configuration
+        Parameters:
+          - InstanceType
+          - KeyName
+          - VolumeSize
+    ParameterLabels:
+      AdminPassword:
+        default: Admin Password
+      ProjectId:
+        default: Project ID
+      Timezone:
+        default: Timezone
+      InstanceType:
+        default: Instance Type
+      KeyName:
+        default: EC2 Key Pair (for SSH)
+      VolumeSize:
+        default: Disk Size (GB)
+
+Parameters:
+  AdminPassword:
+    Type: String
+    MinLength: 8
+    NoEcho: true
+    Description: RTSurvey admin password (min 8 characters). Change after first login.
+
+  ProjectId:
+    Type: String
+    Default: rtsurvey
+    AllowedPattern: '^[a-z0-9_-]+$'
+    Description: Unique project identifier (lowercase letters, numbers, hyphens only)
+
+  Timezone:
+    Type: String
+    Default: Asia/Ho_Chi_Minh
+    Description: Server timezone (e.g. America/New_York, Europe/London, Asia/Singapore)
+
+  InstanceType:
+    Type: String
+    Default: t3.medium
+    AllowedValues:
+      - t3.medium
+      - t3.large
+      - t3.xlarge
+      - m5.large
+      - m5.xlarge
+    Description: t3.medium (2 vCPU / 4 GB) minimum. t3.large recommended for production.
+
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 Key Pair for SSH access. Create one in EC2 > Key Pairs if needed.
+
+  VolumeSize:
+    Type: Number
+    Default: 50
+    MinValue: 30
+    MaxValue: 500
+    Description: Root volume size in GB (minimum 30)
+
+Resources:
+
+  # ── Security Group ──────────────────────────────────────────────────────────
+  RTSurveySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${AWS::StackName}-sg'
+      GroupDescription: RTSurvey - HTTP, HTTPS, Shiny, SSH
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: SSH
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS
+        - IpProtocol: tcp
+          FromPort: 3838
+          ToPort: 3838
+          CidrIp: 0.0.0.0/0
+          Description: Shiny Server
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-sg'
+
+  # ── EC2 Instance ────────────────────────────────────────────────────────────
+  RTSurveyInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
+      SecurityGroups:
+        - !Ref RTSurveySecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: !Ref VolumeSize
+            VolumeType: gp3
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          export PROJECT_ID="${ProjectId}"
+          export ADMIN_PASSWORD="${AdminPassword}"
+          export EMBED_KEYCLOAK="true"
+          export TZ="${Timezone}"
+          curl -fsSL https://raw.githubusercontent.com/therealtimex/rtsurvey/main/scripts/aws-ec2.sh | bash
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}'
+        - Key: App
+          Value: rtsurvey
+
+Outputs:
+  InstanceId:
+    Description: EC2 Instance ID
+    Value: !Ref RTSurveyInstance
+
+  PublicIP:
+    Description: Public IP address
+    Value: !GetAtt RTSurveyInstance.PublicIp
+
+  AppURL:
+    Description: RTSurvey URL (available after 5-10 min setup)
+    Value: !Sub 'http://${RTSurveyInstance.PublicIp}'
+
+  SSHCommand:
+    Description: SSH command
+    Value: !Sub 'ssh ubuntu@${RTSurveyInstance.PublicIp}'
+
+  SetupLog:
+    Description: Monitor setup progress via SSH
+    Value: !Sub 'ssh ubuntu@${RTSurveyInstance.PublicIp} sudo tail -f /var/log/rtsurvey-setup.log'
